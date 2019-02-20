@@ -20,7 +20,7 @@ void initialize_render(driver_state& state, int width, int height)
     state.image_height=height;
     state.image_color=0;
     state.image_depth=0;
-    std::cout<<"TODO: allocate and initialize state.image_depth (when dealing with z-buffering)"<<std::endl;
+    //std::cout<<"TODO: allocate and initialize state.image_depth (when dealing with z-buffering)"<<std::endl;
 
     state.image_color = new pixel[width * height];
     for(size_t i = 0; i < width * height; i++)
@@ -38,7 +38,7 @@ void render(driver_state& state, render_type type)
 {
     auto *tri = new data_geometry[3];
     auto ptr = state.vertex_data;
-    data_vertex in;
+    data_vertex in{};
 
     switch(type) {
         case render_type::triangle:
@@ -47,6 +47,7 @@ void render(driver_state& state, render_type type)
                 in.data = ptr;
                 state.vertex_shader(in, tri[i], state.uniform_data);
                 if(j == 2) {
+                    // tri[i].gl_Position = tri[i].gl_Position / state.image_width;
                     rasterize_triangle(state, (const data_geometry**) &tri);
                     j = 0;
                 }
@@ -87,10 +88,27 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 // fragments, calling the fragment shader, and z-buffering.
 void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 {
-    for(unsigned int k = 0; k < 3; k++) {
-        int i = (state.image_width / 2.0) * (*in)[k].gl_Position[0] + ((state.image_width / 2.0) - 0.5);
-        int j = (state.image_height / 2.0) * (*in)[k].gl_Position[1] + ((state.image_height / 2.0) - 0.5);
+    int x[3], y[3];
+
+    for(int k = 0; k < 3; k++) {
+        int i = static_cast<int>((state.image_width / 2.0) * (*in)[k].gl_Position[0] + ((state.image_width / 2.0) - 0.5));
+        int j = static_cast<int>((state.image_height / 2.0) * (*in)[k].gl_Position[1] + ((state.image_height / 2.0) - 0.5));
+        x[k] = i;
+        y[k] = j;
         state.image_color[i + j * state.image_width] = make_pixel(255, 255, 255); // drawing in white pixel for verts
     }
-    std::cout<<"TODO: implement rasterization"<<std::endl;
+
+    float area_ABC = (0.5f * ((x[1]*y[2] - x[2]*y[1]) - (x[0]*y[2] - x[2]*y[0]) - (x[0]*y[1] - x[1]*y[0])));
+
+    for(int j = 0; j < state.image_height; j++) {
+        for(int i = 0; i < state.image_width; i++) {
+            float alpha = (0.5f * ((x[1] * y[2] - x[2] * y[1]) + (y[1] - y[2])*i + (x[2] - x[1])*j)) / area_ABC;
+            float beta =  (0.5f * ((x[2] * y[0] - x[0] * y[2]) + (y[2] - y[0])*i + (x[0] - x[2])*j)) / area_ABC;
+            float gamma = (0.5f * ((x[0] * y[1] - x[1] * y[0]) + (y[0] - y[1])*i + (x[1] - x[0])*j)) / area_ABC;
+
+            if (alpha >= 0 && beta >= 0 && gamma >= 0) {
+                state.image_color[i + j * state.image_width] = make_pixel(255, 255, 255);
+            }
+        }
+    }
 }

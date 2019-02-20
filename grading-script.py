@@ -96,7 +96,7 @@ for line in gs.readlines():
         points=0
     else:
         if d>max_error:
-            print("FAIL: (%s) Too much error. Actual: %g  Max: %g."%(file,d,max_error))
+            print("FAIL: (%s) Too much error. Actual: %s  Max: %s."%(file,d,max_error))
             points=0
         else:
             print("PASS: (%s) diff %g vs %g."%(file,d,max_error))

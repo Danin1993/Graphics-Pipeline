@@ -90,7 +90,7 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
     for(unsigned int k = 0; k < 3; k++) {
         int i = (state.image_width / 2.0) * (*in)[k].gl_Position[0] + ((state.image_width / 2.0) - 0.5);
         int j = (state.image_height / 2.0) * (*in)[k].gl_Position[1] + ((state.image_height / 2.0) - 0.5);
-        state.image_color[i + j * state.image_width] = make_pixel(0, 0, 0);
+        state.image_color[i + j * state.image_width] = make_pixel(255, 255, 255); // drawing in white pixel for verts
     }
     std::cout<<"TODO: implement rasterization"<<std::endl;
 }

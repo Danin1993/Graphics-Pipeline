@@ -87,9 +87,9 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 // fragments, calling the fragment shader, and z-buffering.
 void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 {
-    for(unsigned int k = 0; k < 2; k++) {
-        int i = (state.image_width / 2.0) * in[k]->gl_Position[0] + ((state.image_width / 2.0) - 0.5);
-        int j = (state.image_height / 2.0) * in[k]->gl_Position[1] + ((state.image_height / 2.0) - 0.5);
+    for(unsigned int k = 0; k < 3; k++) {
+        int i = (state.image_width / 2.0) * (*in)[k].gl_Position[0] + ((state.image_width / 2.0) - 0.5);
+        int j = (state.image_height / 2.0) * (*in)[k].gl_Position[1] + ((state.image_height / 2.0) - 0.5);
         state.image_color[i + j * state.image_width] = make_pixel(0, 0, 0);
     }
     std::cout<<"TODO: implement rasterization"<<std::endl;

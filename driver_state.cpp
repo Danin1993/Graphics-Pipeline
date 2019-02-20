@@ -41,6 +41,7 @@ void render(driver_state& state, render_type type)
 
     switch(type) {
         case render_type::triangle:
+            std::cout<<"I'm here"<<std::endl;
             for(size_t i = 0, j = 0; i < state.num_vertices; i++, j++) {
                 tri[i]->data = ptr;
                 ptr += state.floats_per_vertex;

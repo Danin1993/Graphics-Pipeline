@@ -18,8 +18,8 @@ void initialize_render(driver_state& state, int width, int height)
 {
     state.image_width=width;
     state.image_height=height;
-    state.image_color=0;
-    state.image_depth=0;
+    state.image_color=nullptr;
+    state.image_depth=nullptr;
     //std::cout<<"TODO: allocate and initialize state.image_depth (when dealing with z-buffering)"<<std::endl;
 
     state.image_color = new pixel[width * height];
@@ -42,16 +42,16 @@ void render(driver_state& state, render_type type)
 
     switch(type) {
         case render_type::triangle:
-            for(size_t i = 0, j = 0; i < state.num_vertices; i++, j++) {
-                tri[i].data = ptr;
+            for(int i = 0, j = 0; i < state.num_vertices; i++, j++) {
+                tri[j].data = ptr;
                 in.data = ptr;
-                state.vertex_shader(in, tri[i], state.uniform_data);
+                state.vertex_shader(in, tri[j], state.uniform_data);
+                ptr += state.floats_per_vertex;
                 if(j == 2) {
                     // tri[i].gl_Position = tri[i].gl_Position / state.image_width;
                     rasterize_triangle(state, (const data_geometry**) &tri);
-                    j = 0;
+                    j = -1;
                 }
-                ptr += state.floats_per_vertex;
             }
             break;
         case render_type::indexed:
@@ -98,7 +98,7 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
         state.image_color[i + j * state.image_width] = make_pixel(255, 255, 255); // drawing in white pixel for verts
     }
 
-    float area_ABC = (0.5f * ((x[1]*y[2] - x[2]*y[1]) - (x[0]*y[2] - x[2]*y[0]) - (x[0]*y[1] - x[1]*y[0])));
+    float area_ABC = (0.5f * ((x[1]*y[2] - x[2]*y[1]) - (x[0]*y[2] - x[2]*y[0]) + (x[0]*y[1] - x[1]*y[0])));
 
     for(int j = 0; j < state.image_height; j++) {
         for(int i = 0; i < state.image_width; i++) {

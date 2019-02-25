@@ -48,7 +48,7 @@ void render(driver_state& state, render_type type)
                 state.vertex_shader(in, tri[j], state.uniform_data);
                 ptr += state.floats_per_vertex;
                 if(j == 2) {
-                    // tri[i].gl_Position = tri[i].gl_Position / state.image_width;
+                    //tri[i].gl_Position /= state.image_width;
                     rasterize_triangle(state, (const data_geometry**) &tri);
                     j = -1;
                 }
@@ -89,17 +89,21 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 {
     int x[3], y[3];
+    float w_div_2 = state.image_width / 2.0f;
+    float h_div_2 = state.image_height / 2.0f;
 
+    // calculates i and j coords in NDC for vertices
     for(int k = 0; k < 3; k++) {
-        int i = static_cast<int>((state.image_width / 2.0) * (*in)[k].gl_Position[0] + ((state.image_width / 2.0) - 0.5));
-        int j = static_cast<int>((state.image_height / 2.0) * (*in)[k].gl_Position[1] + ((state.image_height / 2.0) - 0.5));
+        int i = static_cast<int>(w_div_2 * (*in)[k].gl_Position[0] + (w_div_2 - 0.5f));
+        int j = static_cast<int>(h_div_2 * (*in)[k].gl_Position[1] + (h_div_2 - 0.5f));
         x[k] = i;
         y[k] = j;
-        state.image_color[i + j * state.image_width] = make_pixel(255, 255, 255); // drawing in white pixel for verts
     }
 
     float area_ABC = (0.5f * ((x[1]*y[2] - x[2]*y[1]) - (x[0]*y[2] - x[2]*y[0]) + (x[0]*y[1] - x[1]*y[0])));
 
+    // For each pixel, calculate it's barycentric weight with respect to the vertices of the triangle
+    // If pixel is in triangle, color it
     for(int j = 0; j < state.image_height; j++) {
         for(int i = 0; i < state.image_width; i++) {
             float alpha = (0.5f * ((x[1] * y[2] - x[2] * y[1]) + (y[1] - y[2])*i + (x[2] - x[1])*j)) / area_ABC;

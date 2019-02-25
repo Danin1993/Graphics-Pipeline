@@ -1,9 +1,7 @@
 #include "driver_state.h"
 #include <cstring>
 
-driver_state::driver_state()
-{
-}
+driver_state::driver_state() = default;
 
 driver_state::~driver_state()
 {
@@ -94,18 +92,34 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 
     // calculates i and j coords in NDC for vertices
     for(int k = 0; k < 3; k++) {
-        int i = static_cast<int>(w_div_2 * (*in)[k].gl_Position[0] + (w_div_2 - 0.5f));
-        int j = static_cast<int>(h_div_2 * (*in)[k].gl_Position[1] + (h_div_2 - 0.5f));
+        auto i = static_cast<int>(w_div_2 * ((*in)[k].gl_Position[0]/(*in)[k].gl_Position[3]) + (w_div_2 - 0.5f));
+        auto j = static_cast<int>(h_div_2 * ((*in)[k].gl_Position[1]/(*in)[k].gl_Position[3]) + (h_div_2 - 0.5f));
         x[k] = i;
         y[k] = j;
     }
 
+    // calculate min and max of triangle
+    int min_x = std::min(std::min(x[0], x[1]), x[2]);
+    int max_x = std::max(std::max(x[0], x[1]), x[2]);
+    int min_y = std::min(std::min(y[0], y[1]), y[2]);
+    int max_y = std::max(std::max(y[0], y[1]), y[2]);
+
+    // check for cases where triangle goes off pixel grid
+    if(min_x < 0)
+        min_x = 0;
+    if(min_y < 0)
+        min_y = 0;
+    if(max_x > state.image_width)
+        max_x = state.image_width - 1;
+    if(max_y > state.image_height)
+        max_y = state.image_height - 1;
+
     float area_ABC = (0.5f * ((x[1]*y[2] - x[2]*y[1]) - (x[0]*y[2] - x[2]*y[0]) + (x[0]*y[1] - x[1]*y[0])));
 
-    // For each pixel, calculate it's barycentric weight with respect to the vertices of the triangle
-    // If pixel is in triangle, color it
-    for(int j = 0; j < state.image_height; j++) {
-        for(int i = 0; i < state.image_width; i++) {
+    // For each pixel in the bounding box of triangle, calculate it's barycentric weight with respect to the vertices
+    // of the triangle. If pixel is in triangle, color it.
+    for(int j = min_y; j < max_y + 1; j++) {
+        for(int i = min_x; i < max_x + 1; i++) {
             float alpha = (0.5f * ((x[1] * y[2] - x[2] * y[1]) + (y[1] - y[2])*i + (x[2] - x[1])*j)) / area_ABC;
             float beta =  (0.5f * ((x[2] * y[0] - x[0] * y[2]) + (y[2] - y[0])*i + (x[0] - x[2])*j)) / area_ABC;
             float gamma = (0.5f * ((x[0] * y[1] - x[1] * y[0]) + (y[0] - y[1])*i + (x[1] - x[0])*j)) / area_ABC;

@@ -98,6 +98,30 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
         y[k] = j;
     }
 
+    auto *data = new float[MAX_FLOATS_PER_VERTEX];
+    data_fragment frag_data{data};
+    //auto *frag_data = new data_fragment[MAX_FLOATS_PER_VERTEX];
+    auto output_data = new data_output;
+
+    for(int i = 0; i < state.floats_per_vertex; i++) {
+        switch(state.interp_rules[i]) {
+            case interp_type::flat:
+                frag_data.data[i] = in[0]->data[i];
+                break;
+            case interp_type::smooth:
+                break;
+            case interp_type::noperspective:
+                break;
+            default:
+                break;
+        }
+    }
+
+    state.fragment_shader(frag_data, *output_data, state.uniform_data);
+
+    delete [] data;
+    delete output_data;
+
     // calculate min and max of triangle
     int min_x = std::min(std::min(x[0], x[1]), x[2]);
     int max_x = std::max(std::max(x[0], x[1]), x[2]);
@@ -125,7 +149,10 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
             float gamma = (0.5f * ((x[0] * y[1] - x[1] * y[0]) + (y[0] - y[1])*i + (x[1] - x[0])*j)) / area_ABC;
 
             if (alpha >= 0 && beta >= 0 && gamma >= 0) {
-                state.image_color[i + j * state.image_width] = make_pixel(255, 255, 255);
+                state.image_color[i + j * state.image_width] = make_pixel(
+                        static_cast<int>(output_data->output_color[0] * 255),
+                        static_cast<int>(output_data->output_color[1] * 255),
+                        static_cast<int>(output_data->output_color[2] * 255));
             }
         }
     }

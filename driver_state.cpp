@@ -118,7 +118,7 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
     auto *data = new float[MAX_FLOATS_PER_VERTEX];
     data_fragment frag_data{data};
     //auto *frag_data = new data_fragment[MAX_FLOATS_PER_VERTEX];
-    auto output_data = new data_output;
+    data_output output_data;
 
     // For each pixel in the bounding box of triangle, calculate it's barycentric weight with respect to the vertices
     // of the triangle. If pixel is in triangle, color it.
@@ -129,41 +129,43 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
             float gamma = (0.5f * ((x[0] * y[1] - x[1] * y[0]) + (y[0] - y[1])*i + (x[1] - x[0])*j)) / area_ABC;
 
             if (alpha >= 0 && beta >= 0 && gamma >= 0) {
+                float alpha_prime = alpha;
+                float beta_prime = beta;
+                float gamma_prime = gamma;
+
                 for(int k = 0; k < state.floats_per_vertex; k++) {
                     float k_gour;
                     switch(state.interp_rules[k]) {
                         case interp_type::flat:
-                            frag_data.data[k] = in[0]->data[k];
+                            frag_data.data[k] = (*in)[0].data[k];
                             break;
                         case interp_type::smooth:
-                            k_gour = (alpha / (*in)[0].gl_Position[3])
-                                    + (beta / (*in)[1].gl_Position[3])
-                                    + (gamma / (*in)[2].gl_Position[3]);
+                            k_gour = (alpha_prime / (*in)[0].gl_Position[3])
+                                     + (beta_prime / (*in)[1].gl_Position[3])
+                                     + (gamma_prime / (*in)[2].gl_Position[3]);
 
-                            alpha = alpha / (k_gour * (*in)[0].gl_Position[3]);
-                            beta = beta / (k_gour * (*in)[1].gl_Position[3]);
-                            gamma = gamma / (k_gour * (*in)[2].gl_Position[3]);
-
-                            frag_data.data[k] = alpha * in[0]->data[k] + beta * in[1]->data[k] + gamma * in[2]->data[k];
-                            break;
+                            alpha = alpha_prime / (k_gour * (*in)[0].gl_Position[3]);
+                            beta = beta_prime / (k_gour * (*in)[1].gl_Position[3]);
+                            gamma = gamma_prime / (k_gour * (*in)[2].gl_Position[3]);
                         case interp_type::noperspective:
-                            frag_data.data[k] = alpha * in[0]->data[k] + beta * in[1]->data[k] + gamma * in[2]->data[k];
+                            frag_data.data[k] = alpha * (*in)[0].data[k]
+                                                + beta * (*in)[1].data[k]
+                                                + gamma * (*in)[2].data[k];
                             break;
                         default:
                             break;
                     }
                 }
 
-                state.fragment_shader(frag_data, *output_data, state.uniform_data);
+                state.fragment_shader(frag_data, output_data, state.uniform_data);
 
                 state.image_color[i + j * state.image_width] = make_pixel(
-                        static_cast<int>(output_data->output_color[0] * 255),
-                        static_cast<int>(output_data->output_color[1] * 255),
-                        static_cast<int>(output_data->output_color[2] * 255));
+                        static_cast<int>(output_data.output_color[0] * 255),
+                        static_cast<int>(output_data.output_color[1] * 255),
+                        static_cast<int>(output_data.output_color[2] * 255));
             }
         }
     }
 
     delete [] data;
-    delete output_data;
 }

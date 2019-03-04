@@ -130,13 +130,24 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 
             if (alpha >= 0 && beta >= 0 && gamma >= 0) {
                 for(int k = 0; k < state.floats_per_vertex; k++) {
+                    float k_gour;
                     switch(state.interp_rules[k]) {
                         case interp_type::flat:
                             frag_data.data[k] = in[0]->data[k];
                             break;
                         case interp_type::smooth:
+                            k_gour = (alpha / (*in)[0].gl_Position[3])
+                                    + (beta / (*in)[1].gl_Position[3])
+                                    + (gamma / (*in)[2].gl_Position[3]);
+
+                            alpha = alpha / (k_gour * (*in)[0].gl_Position[3]);
+                            beta = beta / (k_gour * (*in)[1].gl_Position[3]);
+                            gamma = gamma / (k_gour * (*in)[2].gl_Position[3]);
+
+                            frag_data.data[k] = alpha * in[0]->data[k] + beta * in[1]->data[k] + gamma * in[2]->data[k];
                             break;
                         case interp_type::noperspective:
+                            frag_data.data[k] = alpha * in[0]->data[k] + beta * in[1]->data[k] + gamma * in[2]->data[k];
                             break;
                         default:
                             break;

@@ -1,5 +1,6 @@
 #include "driver_state.h"
 #include <cstring>
+#include <limits>
 
 driver_state::driver_state() = default;
 
@@ -18,11 +19,13 @@ void initialize_render(driver_state& state, int width, int height)
     state.image_height=height;
     state.image_color=nullptr;
     state.image_depth=nullptr;
-    //std::cout<<"TODO: allocate and initialize state.image_depth (when dealing with z-buffering)"<<std::endl;
 
     state.image_color = new pixel[width * height];
-    for(size_t i = 0; i < width * height; i++)
+    state.image_depth = new float[width * height];
+    for(size_t i = 0; i < width * height; i++) {
+        state.image_depth[i] = std::numeric_limits<float>::max();
         state.image_color[i] = make_pixel(0, 0, 0);
+    }
 }
 
 // This function will be called to render the data that has been stored in this class.
@@ -85,16 +88,18 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 // fragments, calling the fragment shader, and z-buffering.
 void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 {
-    int x[3], y[3];
+    int x[3], y[3], z[3];
     float w_div_2 = state.image_width / 2.0f;
     float h_div_2 = state.image_height / 2.0f;
 
     // calculates i and j coords in NDC for vertices
-    for(int k = 0; k < 3; k++) {
-        auto i = static_cast<int>(w_div_2 * ((*in)[k].gl_Position[0]/(*in)[k].gl_Position[3]) + (w_div_2 - 0.5f));
-        auto j = static_cast<int>(h_div_2 * ((*in)[k].gl_Position[1]/(*in)[k].gl_Position[3]) + (h_div_2 - 0.5f));
-        x[k] = i;
-        y[k] = j;
+    for(int l = 0; l < 3; l++) {
+        auto i = static_cast<int>(w_div_2 * ((*in)[l].gl_Position[0]/(*in)[l].gl_Position[3]) + (w_div_2 - 0.5f));
+        auto j = static_cast<int>(h_div_2 * ((*in)[l].gl_Position[1]/(*in)[l].gl_Position[3]) + (h_div_2 - 0.5f));
+        auto k = static_cast<int>(w_div_2 * ((*in)[l].gl_Position[2]/(*in)[l].gl_Position[3]) + (w_div_2 - 0.5f));
+        x[l] = i;
+        y[l] = j;
+        z[l] = k;
     }
 
     // calculate min and max of triangle
@@ -117,52 +122,59 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 
     auto *data = new float[MAX_FLOATS_PER_VERTEX];
     data_fragment frag_data{data};
-    //auto *frag_data = new data_fragment[MAX_FLOATS_PER_VERTEX];
     data_output output_data;
 
     // For each pixel in the bounding box of triangle, calculate it's barycentric weight with respect to the vertices
     // of the triangle. If pixel is in triangle, color it.
     for(int j = min_y; j < max_y + 1; j++) {
         for(int i = min_x; i < max_x + 1; i++) {
-            float alpha = (0.5f * ((x[1] * y[2] - x[2] * y[1]) + (y[1] - y[2])*i + (x[2] - x[1])*j)) / area_ABC;
-            float beta =  (0.5f * ((x[2] * y[0] - x[0] * y[2]) + (y[2] - y[0])*i + (x[0] - x[2])*j)) / area_ABC;
-            float gamma = (0.5f * ((x[0] * y[1] - x[1] * y[0]) + (y[0] - y[1])*i + (x[1] - x[0])*j)) / area_ABC;
+            float alpha_prime = (0.5f * ((x[1] * y[2] - x[2] * y[1]) + (y[1] - y[2])*i + (x[2] - x[1])*j)) / area_ABC;
+            float beta_prime =  (0.5f * ((x[2] * y[0] - x[0] * y[2]) + (y[2] - y[0])*i + (x[0] - x[2])*j)) / area_ABC;
+            float gamma_prime = (0.5f * ((x[0] * y[1] - x[1] * y[0]) + (y[0] - y[1])*i + (x[1] - x[0])*j)) / area_ABC;
 
-            if (alpha >= 0 && beta >= 0 && gamma >= 0) {
-                float alpha_prime = alpha;
-                float beta_prime = beta;
-                float gamma_prime = gamma;
+            if (alpha_prime >= 0 && beta_prime >= 0 && gamma_prime >= 0) {
+                float alpha = alpha_prime;
+                float beta = beta_prime;
+                float gamma = gamma_prime;
 
-                for(int k = 0; k < state.floats_per_vertex; k++) {
-                    float k_gour;
-                    switch(state.interp_rules[k]) {
-                        case interp_type::flat:
-                            frag_data.data[k] = (*in)[0].data[k];
-                            break;
-                        case interp_type::smooth:
-                            k_gour = (alpha_prime / (*in)[0].gl_Position[3])
-                                     + (beta_prime / (*in)[1].gl_Position[3])
-                                     + (gamma_prime / (*in)[2].gl_Position[3]);
+                float z_val = alpha * z[0] + beta * z[1] + gamma * z[2];
 
-                            alpha = alpha_prime / (k_gour * (*in)[0].gl_Position[3]);
-                            beta = beta_prime / (k_gour * (*in)[1].gl_Position[3]);
-                            gamma = gamma_prime / (k_gour * (*in)[2].gl_Position[3]);
-                        case interp_type::noperspective:
-                            frag_data.data[k] = alpha * (*in)[0].data[k]
-                                                + beta * (*in)[1].data[k]
-                                                + gamma * (*in)[2].data[k];
-                            break;
-                        default:
-                            break;
+                // If z is closer than previously stored z, then color
+                if(z_val < state.image_depth[i + j * state.image_width]) {
+                    // update new z val
+                    state.image_depth[i + j * state.image_width] = z_val;
+
+                    for (int k = 0; k < state.floats_per_vertex; k++) {
+                        float k_gour;
+                        switch (state.interp_rules[k]) {
+                            case interp_type::flat:
+                                frag_data.data[k] = (*in)[0].data[k];
+                                break;
+                            case interp_type::smooth:
+                                k_gour = (alpha / (*in)[0].gl_Position[3])
+                                         + (beta / (*in)[1].gl_Position[3])
+                                         + (gamma / (*in)[2].gl_Position[3]);
+
+                                alpha_prime = alpha / (k_gour * (*in)[0].gl_Position[3]);
+                                beta_prime = beta / (k_gour * (*in)[1].gl_Position[3]);
+                                gamma_prime = gamma / (k_gour * (*in)[2].gl_Position[3]);
+                            case interp_type::noperspective:
+                                frag_data.data[k] = alpha_prime * (*in)[0].data[k]
+                                                    + beta_prime * (*in)[1].data[k]
+                                                    + gamma_prime * (*in)[2].data[k];
+                                break;
+                            default:
+                                break;
+                        }
                     }
+
+                    state.fragment_shader(frag_data, output_data, state.uniform_data);
+
+                    state.image_color[i + j * state.image_width] = make_pixel(
+                            static_cast<int>(output_data.output_color[0] * 255),
+                            static_cast<int>(output_data.output_color[1] * 255),
+                            static_cast<int>(output_data.output_color[2] * 255));
                 }
-
-                state.fragment_shader(frag_data, output_data, state.uniform_data);
-
-                state.image_color[i + j * state.image_width] = make_pixel(
-                        static_cast<int>(output_data.output_color[0] * 255),
-                        static_cast<int>(output_data.output_color[1] * 255),
-                        static_cast<int>(output_data.output_color[2] * 255));
             }
         }
     }

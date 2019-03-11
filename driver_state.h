@@ -11,7 +11,7 @@ struct driver_state
     // Each vertex occupies floats_per_vertex entries in the array.
     // There are num_vertices vertices and thus floats_per_vertex*num_vertices
     // floats in the array.
-    float * vertex_data = 0;
+    float * vertex_data = nullptr;
     int num_vertices = 0;
     int floats_per_vertex = 0;
 
@@ -20,7 +20,7 @@ struct driver_state
     // i j k i j k i j k i j k ...
     // There are num_triangles triangles, so the array contains 3*num_triangles
     // entries.
-    int * index_data = 0;
+    int * index_data = nullptr;
     int num_triangles = 0;
 
     // This is data that is constant over all triangles and fragments.
@@ -52,11 +52,11 @@ struct driver_state
     // correspond to the bottom row of the image, the next image_width entries
     // correspond to the next row, etc.  The array has image_width*image_height
     // entries.
-    pixel * image_color = 0;
+    pixel * image_color = nullptr;
 
     // This array stores the depth of a pixel and is used for z-buffering.  The
     // size and layout is the same as image_color.
-    float * image_depth = 0;
+    float * image_depth = nullptr;
 
     // Pointer to a function, which performs the role of a vertex shader.  It
     // should be called on each vertex and given data stored in vertex_data.
@@ -99,5 +99,7 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face=0);
 // function is responsible for rasterization, interpolation of data to
 // fragments, calling the fragment shader, and z-buffering.
 void rasterize_triangle(driver_state& state, const data_geometry* in[3]);
+
+data_geometry* create_triangle(driver_state& state, const data_geometry* in[3], vec4 A, vec4 B, vec4 C, int axis, int sign);
 
 #endif

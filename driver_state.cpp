@@ -87,8 +87,8 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
         return;
     }
     else{
-        auto *new_tri = new data_geometry[3];
-        auto *new_tri2 = new data_geometry[3];
+        data_geometry *new_tri;
+        data_geometry *new_tri2;
         std::vector<bool> vec_inside;
 
         vec4 A = (*in)[0].gl_Position;
@@ -114,63 +114,40 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
             vec_inside.push_back(false);
 
         if(!vec_inside[0] && !vec_inside[1] && !vec_inside[2]) {
-            delete[] new_tri;
-            delete[] new_tri2;
-            return;
+            ;   //do nothing
         }
-        if(vec_inside[0] && !vec_inside[1] && !vec_inside[2]) {
+        else if(vec_inside[0] && !vec_inside[1] && !vec_inside[2]) {
             new_tri = create_triangle(state, in, A, B, C, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri, face+1);
-            delete[] new_tri;
-            delete[] new_tri2;
-            return;
         }
-        if(!vec_inside[0] && vec_inside[1] && !vec_inside[2]) {
+        else if(!vec_inside[0] && vec_inside[1] && !vec_inside[2]) {
             new_tri = create_triangle(state, in, B, C, A, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri, face+1);
-            delete[] new_tri;
-            delete[] new_tri2;
-            return;
         }
-        if(!vec_inside[0] && !vec_inside[1] && vec_inside[2]) {
+        else if(!vec_inside[0] && !vec_inside[1] && vec_inside[2]) {
             new_tri = create_triangle(state, in, C, A, B, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri, face+1);
-            delete[] new_tri;
-            delete[] new_tri2;
-            return;
         }
-        if(vec_inside[0] && vec_inside[1] && !vec_inside[2]) {
+        else if(vec_inside[0] && vec_inside[1] && !vec_inside[2]) {
             new_tri = create_triangle(state, in, A, B, C, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri, face+1);
             new_tri2 = create_triangle(state, in, B, C, A, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri2, face+1);
-            delete[] new_tri;
-            delete[] new_tri2;
-            return;
         }
-        if(vec_inside[0] && !vec_inside[1] && vec_inside[2]) {
+        else if(vec_inside[0] && !vec_inside[1] && vec_inside[2]) {
             new_tri = create_triangle(state, in, A, B, C, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri, face+1);
             new_tri2 = create_triangle(state, in, C, A, B, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri2, face+1);
-            delete[] new_tri;
-            delete[] new_tri2;
-            return;
         }
-        if(!vec_inside[0] && vec_inside[1] && vec_inside[2]) {
+        else if(!vec_inside[0] && vec_inside[1] && vec_inside[2]) {
             new_tri = create_triangle(state, in, B, C, A, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri, face+1);
             new_tri2 = create_triangle(state, in, C, A, B, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri2, face+1);
-            delete[] new_tri;
-            delete[] new_tri2;
-            return;
         }
-        if(vec_inside[0] && vec_inside[1] && vec_inside[2]) {
+        else {  // if all vertices are in screen space
             clip_triangle(state,in,face+1);
-            delete[] new_tri;
-            delete[] new_tri2;
-            return;
         }
 
         delete[] new_tri;

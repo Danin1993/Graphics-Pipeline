@@ -280,8 +280,8 @@ data_geometry* create_triangle(driver_state& state, const data_geometry* in[3], 
                 break;
             case interp_type::smooth:
                 new_tri[0].data[i] = (*in)[0].data[i];
-                new_tri[1].data[i] = AB_t * in[0]->data[i] + (1-AB_t) * in[1]->data[i];
-                new_tri[2].data[i] = AC_t * in[0]->data[i] + (1-AC_t) * in[2]->data[i];
+                new_tri[1].data[i] = AB_t * (*in)[0].data[i] + (1-AB_t) * (*in)[1].data[i];
+                new_tri[2].data[i] = AC_t * (*in)[0].data[i] + (1-AC_t) * (*in)[2].data[i];
                 break;
             case interp_type::noperspective:
                 AB_k = static_cast<float>(1.0 / (AB_t * A[3] + 1 - AB_t) * B[3]);

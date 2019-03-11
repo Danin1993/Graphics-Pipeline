@@ -62,9 +62,10 @@ struct data_geometry
 
     float * data;
 
-//    ~data_geometry(){
-//        delete [] data;
-//    }
+    /*~data_geometry(){
+        delete [] data;
+    }
+     */
 };
 
 // This is the data that is the input to the fragment shader.  data should be

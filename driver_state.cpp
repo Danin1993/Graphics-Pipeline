@@ -3,6 +3,8 @@
 #include <limits>
 #include <vector>
 
+bool debug_mode = false;
+
 driver_state::driver_state() = default;
 
 driver_state::~driver_state()
@@ -50,8 +52,10 @@ void render(driver_state& state, render_type type)
                 state.vertex_shader(in, tri[j], state.uniform_data);
                 ptr += state.floats_per_vertex;
                 if(j == 2) {
-                    clip_triangle(state, (const data_geometry**) &tri, 0);
-                    //rasterize_triangle(state, (const data_geometry**) &tri);
+                    if(debug_mode)
+                        std::cout << "Clipping triangle #" << i % 2 << std::endl;
+                    //clip_triangle(state, (const data_geometry**) &tri, 0);
+                    rasterize_triangle(state, (const data_geometry**) &tri);
                     j = -1;
                 }
             }
@@ -111,36 +115,50 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
             ;   //do nothing
         }
         else if(vec_inside[0] && !vec_inside[1] && !vec_inside[2]) {
+            if(debug_mode)
+                std::cout << "[A] B C " << std::endl;
             new_tri = create_triangle(state, in, A, B, C, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri, face+1);
         }
         else if(!vec_inside[0] && vec_inside[1] && !vec_inside[2]) {
+            if(debug_mode)
+                std::cout << "A [B] C " << std::endl;
             new_tri = create_triangle(state, in, B, C, A, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri, face+1);
         }
         else if(!vec_inside[0] && !vec_inside[1] && vec_inside[2]) {
+            if(debug_mode)
+                std::cout << "A B [C] " << std::endl;
             new_tri = create_triangle(state, in, C, A, B, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri, face+1);
         }
         else if(vec_inside[0] && vec_inside[1] && !vec_inside[2]) {
+            if(debug_mode)
+                std::cout << "[A] [B] C " << std::endl;
             new_tri = create_triangle(state, in, A, B, C, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri, face+1);
             new_tri2 = create_triangle(state, in, B, C, A, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri2, face+1);
         }
         else if(vec_inside[0] && !vec_inside[1] && vec_inside[2]) {
+            if(debug_mode)
+                std::cout << "[A] B [C] " << std::endl;
             new_tri = create_triangle(state, in, A, B, C, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri, face+1);
             new_tri2 = create_triangle(state, in, C, A, B, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri2, face+1);
         }
         else if(!vec_inside[0] && vec_inside[1] && vec_inside[2]) {
+            if(debug_mode)
+                std::cout << "A [B] [C] " << std::endl;
             new_tri = create_triangle(state, in, B, C, A, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri, face+1);
             new_tri2 = create_triangle(state, in, C, A, B, axis, sign);
             clip_triangle(state, (const data_geometry**) &new_tri2, face+1);
         }
         else {  // if all vertices are in screen space
+            if(debug_mode)
+                std::cout << "[A B C]" << std::endl;
             clip_triangle(state,in,face+1);
         }
 
@@ -273,7 +291,7 @@ data_geometry* create_triangle(driver_state& state, const data_geometry* in[3], 
     new_tri[1].data = new float[MAX_FLOATS_PER_VERTEX];
     new_tri[2].data = new float[MAX_FLOATS_PER_VERTEX];
 
-    for(int i = 0; i < state.floats_per_vertex - 1; i++) {
+    for(int i = 0; i < state.floats_per_vertex; i++) {
         switch (state.interp_rules[i]) {
             case interp_type::flat:
                 new_tri[0].data[i] = (*in)[0].data[i];

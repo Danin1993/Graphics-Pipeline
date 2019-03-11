@@ -87,8 +87,8 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
         return;
     }
     else{
-        data_geometry *new_tri;
-        data_geometry *new_tri2;
+        data_geometry *new_tri = nullptr;
+        data_geometry *new_tri2 = nullptr;
         std::vector<bool> vec_inside;
 
         vec4 A = (*in)[0].gl_Position;
@@ -150,8 +150,10 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
             clip_triangle(state,in,face+1);
         }
 
-        delete[] new_tri;
-        delete[] new_tri2;
+        if (new_tri != nullptr)
+            delete[] new_tri;
+        if (new_tri2 != nullptr)
+            delete[] new_tri2;
         return;
     }
 }

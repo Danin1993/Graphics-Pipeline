@@ -75,8 +75,6 @@ void render(driver_state& state, render_type type)
 // simply pass the call on to rasterize_triangle.
 void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 {
-      auto *new_tri = new data_geometry[3];
-      auto *new_tri2 = new data_geometry[3];
 //
 //    for(int i = 0; i < 3; i++){
 //        new_tri[i].gl_Position = in[i]->gl_Position;
@@ -86,11 +84,11 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
     if(face==6)
     {
         rasterize_triangle(state, in);
-        delete[] new_tri;
-        delete[] new_tri2;
         return;
     }
     else{
+        auto *new_tri = new data_geometry[3];
+        auto *new_tri2 = new data_geometry[3];
         std::vector<bool> vec_inside;
 
         vec4 A = (*in)[0].gl_Position;

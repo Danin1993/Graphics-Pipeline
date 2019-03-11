@@ -66,7 +66,6 @@ void render(driver_state& state, render_type type)
             break;
     }
 
-    delete [] tri->data;
     delete [] tri;
 }
 
@@ -149,7 +148,6 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
             delete[] new_tri->data;
             delete[] new_tri;
         }
-
         if(new_tri2 != nullptr) {
             delete[] new_tri2->data;
             delete[] new_tri2;

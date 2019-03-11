@@ -145,11 +145,13 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
         }
 
         if(new_tri != nullptr) {
-            delete[] new_tri->data;
+            for(int i = 0; i < 3; i++)
+                delete[] new_tri[i].data;
             delete[] new_tri;
         }
         if(new_tri2 != nullptr) {
-            delete[] new_tri2->data;
+            for(int i = 0; i < 3; i++)
+                delete[] new_tri2[i].data;
             delete[] new_tri2;
         }
 

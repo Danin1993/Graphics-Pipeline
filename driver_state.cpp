@@ -86,6 +86,8 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
     if(face==6)
     {
         rasterize_triangle(state, in);
+        delete[] new_tri;
+        delete[] new_tri2;
         return;
     }
     else{

@@ -91,9 +91,9 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
     else{
         std::vector<bool> vec_inside;
 
-        vec4 A = in[0]->gl_Position;
-        vec4 B = in[1]->gl_Position;
-        vec4 C = in[2]->gl_Position;
+        vec4 A = (*in)[0].gl_Position;
+        vec4 B = (*in)[1].gl_Position;
+        vec4 C = (*in)[2].gl_Position;
 
         int sign = 2*(face%2)-1;
         int axis = face % 3;

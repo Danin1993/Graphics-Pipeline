@@ -4,6 +4,7 @@
 #include <vector>
 
 bool debug_mode = false;
+bool its_clipping_time = false;
 
 driver_state::driver_state() = default;
 
@@ -42,6 +43,8 @@ void render(driver_state& state, render_type type)
 {
     auto *tri = new data_geometry[3];
     auto ptr = state.vertex_data;
+    const auto first_vertex = state.vertex_data;
+    auto is_first_vertex = true;
     data_vertex in{};
 
     switch(type) {
@@ -54,17 +57,77 @@ void render(driver_state& state, render_type type)
                 if(j == 2) {
                     if(debug_mode)
                         std::cout << "Clipping triangle #" << i % 2 << std::endl;
-                    //clip_triangle(state, (const data_geometry**) &tri, 0);
-                    rasterize_triangle(state, (const data_geometry**) &tri);
+                    if(its_clipping_time)
+                        clip_triangle(state, (const data_geometry**) &tri, 0);
+                    else
+                        rasterize_triangle(state, (const data_geometry**) &tri);
                     j = -1;
                 }
             }
             break;
         case render_type::indexed:
+            for(int i = 0; i < 3 * state.num_triangles; i += 3) {
+                for(int j = 0; j < 3; j++) {
+                    ptr = &state.vertex_data[state.index_data[i + j] * state.floats_per_vertex];
+                    tri[j].data = ptr;
+                    in.data = ptr;
+                    state.vertex_shader(in, tri[j], state.uniform_data);
+                }
+                if(debug_mode)
+                    std::cout << "Clipping triangle #" << i % 2 << std::endl;
+                if(its_clipping_time)
+                    clip_triangle(state, (const data_geometry**) &tri, 0);
+                else
+                    rasterize_triangle(state, (const data_geometry**) &tri);
+            }
             break;
         case render_type::fan:
+            for(int i = 0, j = 0; i < state.num_vertices; i++, j++) {
+                if(is_first_vertex) {
+                    tri[j].data = first_vertex;
+                    in.data = first_vertex;
+                    state.vertex_shader(in, tri[j], state.uniform_data);
+                    is_first_vertex = false;
+                    i--;
+                }
+                else {
+                    ptr += state.floats_per_vertex;
+                    tri[j].data = ptr;
+                    in.data = ptr;
+                    state.vertex_shader(in, tri[j], state.uniform_data);
+                }
+                if(j == 2) {
+                    if(debug_mode)
+                        std::cout << "Clipping triangle #" << i % 2 << std::endl;
+                    if(its_clipping_time)
+                        clip_triangle(state, (const data_geometry**) &tri, 0);
+                    else
+                        rasterize_triangle(state, (const data_geometry**) &tri);
+                    j = -1;
+                    is_first_vertex = true;
+                    ptr -= state.floats_per_vertex;
+                    i--;
+                }
+            }
             break;
         case render_type::strip:
+            for(int i = 0, j = 0; i < state.num_vertices; i++, j++) {
+                tri[j].data = ptr;
+                in.data = ptr;
+                state.vertex_shader(in, tri[j], state.uniform_data);
+                ptr += state.floats_per_vertex;
+                if(j == 2) {
+                    if(debug_mode)
+                        std::cout << "Clipping triangle #" << i % 2 << std::endl;
+                    if(its_clipping_time)
+                        clip_triangle(state, (const data_geometry**) &tri, 0);
+                    else
+                        rasterize_triangle(state, (const data_geometry**) &tri);
+                    j = -1;
+                    ptr -= state.floats_per_vertex * 2;
+                    i -= 2;
+                }
+            }
             break;
         default:
             break;
@@ -77,7 +140,7 @@ void render(driver_state& state, render_type type)
 // It will be called recursively, once for each clipping face (face=0, 1, ..., 5) to
 // clip against each of the clipping faces in turn.  When face=6, clip_triangle should
 // simply pass the call on to rasterize_triangle.
-void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
+void clip_triangle(driver_state& state, const data_geometry* in[3], int face)
 {
     if(face==6)
     {
@@ -88,6 +151,7 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
         data_geometry *new_tri = nullptr;
         data_geometry *new_tri2 = nullptr;
         std::vector<bool> vec_inside;
+        std::vector<data_geometry*> dg_vec;
 
         vec4 A = (*in)[0].gl_Position;
         vec4 B = (*in)[1].gl_Position;
@@ -136,25 +200,31 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
             if(debug_mode)
                 std::cout << "[A] [B] C " << std::endl;
             new_tri = create_triangle(state, in, A, B, C, axis, sign);
-            clip_triangle(state, (const data_geometry**) &new_tri, face+1);
             new_tri2 = create_triangle(state, in, B, C, A, axis, sign);
-            clip_triangle(state, (const data_geometry**) &new_tri2, face+1);
+            dg_vec.push_back(new_tri);
+            dg_vec.push_back(new_tri2);
+            for (auto &i : dg_vec)
+                clip_triangle(state, (const data_geometry**) &i, face+1);
         }
         else if(vec_inside[0] && !vec_inside[1] && vec_inside[2]) {
             if(debug_mode)
                 std::cout << "[A] B [C] " << std::endl;
             new_tri = create_triangle(state, in, A, B, C, axis, sign);
-            clip_triangle(state, (const data_geometry**) &new_tri, face+1);
             new_tri2 = create_triangle(state, in, C, A, B, axis, sign);
-            clip_triangle(state, (const data_geometry**) &new_tri2, face+1);
+            dg_vec.push_back(new_tri);
+            dg_vec.push_back(new_tri2);
+            for (auto &i : dg_vec)
+                clip_triangle(state, (const data_geometry**) &i, face+1);
         }
         else if(!vec_inside[0] && vec_inside[1] && vec_inside[2]) {
             if(debug_mode)
                 std::cout << "A [B] [C] " << std::endl;
             new_tri = create_triangle(state, in, B, C, A, axis, sign);
-            clip_triangle(state, (const data_geometry**) &new_tri, face+1);
             new_tri2 = create_triangle(state, in, C, A, B, axis, sign);
-            clip_triangle(state, (const data_geometry**) &new_tri2, face+1);
+            dg_vec.push_back(new_tri);
+            dg_vec.push_back(new_tri2);
+            for (auto &i : dg_vec)
+                clip_triangle(state, (const data_geometry**) &i, face+1);
         }
         else {  // if all vertices are in screen space
             if(debug_mode)

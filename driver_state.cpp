@@ -2,11 +2,14 @@
 #include <cstring>
 #include <limits>
 #include <vector>
+#include <algorithm>
 
 bool debug_mode = false;
 bool its_clipping_time = false;
 
-driver_state::driver_state() = default;
+driver_state::driver_state()
+{
+}
 
 driver_state::~driver_state()
 {
@@ -277,9 +280,9 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
         min_x = 0;
     if(min_y < 0)
         min_y = 0;
-    if(max_x > state.image_width)
+    if(max_x > state.image_width - 1)
         max_x = state.image_width - 1;
-    if(max_y > state.image_height)
+    if(max_y > state.image_height - 1)
         max_y = state.image_height - 1;
 
     float area_ABC = (0.5f * ((x[1]*y[2] - x[2]*y[1]) - (x[0]*y[2] - x[2]*y[0]) + (x[0]*y[1] - x[1]*y[0])));
@@ -290,8 +293,8 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 
     // For each pixel in the bounding box of triangle, calculate it's barycentric weight with respect to the vertices
     // of the triangle. If pixel is in triangle, color it.
-    for(int j = min_y; j < max_y + 1; j++) {
-        for(int i = min_x; i < max_x + 1; i++) {
+    for(int j = min_y + 1; j < max_y + 1; j++) {
+        for(int i = min_x + 1; i < max_x + 1; i++) {
             float alpha_prime = (0.5f * ((x[1] * y[2] - x[2] * y[1]) + (y[1] - y[2])*i + (x[2] - x[1])*j)) / area_ABC;
             float beta_prime =  (0.5f * ((x[2] * y[0] - x[0] * y[2]) + (y[2] - y[0])*i + (x[0] - x[2])*j)) / area_ABC;
             float gamma_prime = (0.5f * ((x[0] * y[1] - x[1] * y[0]) + (y[0] - y[1])*i + (x[1] - x[0])*j)) / area_ABC;

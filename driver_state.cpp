@@ -143,7 +143,7 @@ void render(driver_state& state, render_type type)
 // It will be called recursively, once for each clipping face (face=0, 1, ..., 5) to
 // clip against each of the clipping faces in turn.  When face=6, clip_triangle should
 // simply pass the call on to rasterize_triangle.
-void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
+void clip_triangle(driver_state& state, const data_geometry* in[3], int face)
 {
     if (face == 1) {
         rasterize_triangle(state, in);
@@ -162,6 +162,7 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 
         // if all vertices of triangle are inside screen space, simply return
         if (A[2] < -A[3] && B[2] < -B[3] && C[2] < -C[3]) {
+
             return;
         } else {
             if (A[2] < -A[3] && B[2] >= -B[3] && C[2] >= -C[3]) {
@@ -200,14 +201,14 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
                 new_in[1] = &first_dg[1];
                 new_in[2] = &first_dg[2];
 
-                clip_triangle(state, (const data_geometry**) &new_in, face + 1);
+                clip_triangle(state, new_in, face + 1);
 
                 // =====================================================
 
                 second_dg[0].data = new float[state.floats_per_vertex];
                 second_dg[1] = *in[1];
-                second_dg[2] = *in[2];
-
+                //second_dg[2] = *in[2];
+                second_dg[2] = first_dg[0];
                 for (int i = 0; i < state.floats_per_vertex; ++i) {
                     switch (state.interp_rules[i]) {
                         case interp_type::flat:
@@ -228,11 +229,10 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
                 second_dg[0].gl_Position = P1;
 
                 new_in[0] = &second_dg[0];
-                new_in[1] = &first_dg[1];
-                new_in[2] = &first_dg[0];
+                new_in[1] = &second_dg[1];
+                new_in[2] = &second_dg[0];
             }
-
-            clip_triangle(state, (const data_geometry**) &new_in, face + 1);
+            clip_triangle(state, new_in, face + 1);
         }
     }
 }
@@ -242,25 +242,25 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 // fragments, calling the fragment shader, and z-buffering.
 void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 {
-    int x[3], y[3], z[3];
+    float x[3], y[3], z[3];
     float w_div_2 = state.image_width / 2.0f;
     float h_div_2 = state.image_height / 2.0f;
 
     // calculates i and j coords in NDC for vertices
     for(int l = 0; l < 3; l++) {
-        auto i = static_cast<int>(w_div_2 * ((*in)[l].gl_Position[0]/(*in)[l].gl_Position[3]) + (w_div_2 - 0.5f));
-        auto j = static_cast<int>(h_div_2 * ((*in)[l].gl_Position[1]/(*in)[l].gl_Position[3]) + (h_div_2 - 0.5f));
-        auto k = static_cast<int>(w_div_2 * ((*in)[l].gl_Position[2]/(*in)[l].gl_Position[3]) + (w_div_2 - 0.5f));
+        float i = (w_div_2 * ((*in)[l].gl_Position[0]/(*in)[l].gl_Position[3]) + (w_div_2 - 0.5f));
+        float j = (h_div_2 * ((*in)[l].gl_Position[1]/(*in)[l].gl_Position[3]) + (h_div_2 - 0.5f));
+        float k = (*in)[l].gl_Position[2] / (*in)[l].gl_Position[3];//(w_div_2 * ((*in)[l].gl_Position[2]/(*in)[l].gl_Position[3]) + (w_div_2 - 0.5f));
         x[l] = i;
         y[l] = j;
         z[l] = k;
     }
 
     // calculate min and max of triangle
-    int min_x = std::min(std::min(x[0], x[1]), x[2]);
-    int max_x = std::max(std::max(x[0], x[1]), x[2]);
-    int min_y = std::min(std::min(y[0], y[1]), y[2]);
-    int max_y = std::max(std::max(y[0], y[1]), y[2]);
+    float min_x = std::min(std::min(x[0], x[1]), x[2]);
+    float max_x = std::max(std::max(x[0], x[1]), x[2]);
+    float min_y = std::min(std::min(y[0], y[1]), y[2]);
+    float max_y = std::max(std::max(y[0], y[1]), y[2]);
 
     // check for cases where triangle goes off pixel grid
     if(min_x < 0)
@@ -285,19 +285,16 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
             float alpha_prime = (0.5f * ((x[1] * y[2] - x[2] * y[1]) + (y[1] - y[2])*i + (x[2] - x[1])*j)) / area_ABC;
             float beta_prime =  (0.5f * ((x[2] * y[0] - x[0] * y[2]) + (y[2] - y[0])*i + (x[0] - x[2])*j)) / area_ABC;
             float gamma_prime = (0.5f * ((x[0] * y[1] - x[1] * y[0]) + (y[0] - y[1])*i + (x[1] - x[0])*j)) / area_ABC;
-
             if (alpha_prime >= 0 && beta_prime >= 0 && gamma_prime >= 0) {
                 float alpha = alpha_prime;
                 float beta = beta_prime;
                 float gamma = gamma_prime;
-
                 float z_val = alpha * z[0] + beta * z[1] + gamma * z[2];
-
+                //if (z_val <= 1 && z_val >= -1){
                 // If z is closer than previously stored z, then color
                 if(z_val < state.image_depth[i + j * state.image_width]) {
                     // update new z val
                     state.image_depth[i + j * state.image_width] = z_val;
-
                     for (int k = 0; k < state.floats_per_vertex; k++) {
                         float k_gour;
                         switch (state.interp_rules[k]) {
@@ -321,7 +318,7 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
                                 break;
                         }
                     }
-
+                //}
                     state.fragment_shader(frag_data, output_data, state.uniform_data);
 
                     state.image_color[i + j * state.image_width] = make_pixel(

@@ -5,7 +5,7 @@
 #include <algorithm>
 
 bool debug_mode = false;
-bool its_clipping_time = false;
+bool its_clipping_time = true;
 
 driver_state::driver_state()
 {
@@ -143,110 +143,97 @@ void render(driver_state& state, render_type type)
 // It will be called recursively, once for each clipping face (face=0, 1, ..., 5) to
 // clip against each of the clipping faces in turn.  When face=6, clip_triangle should
 // simply pass the call on to rasterize_triangle.
-void clip_triangle(driver_state& state, const data_geometry* in[3], int face)
+void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 {
-    if(face==6)
-    {
+    if (face == 1) {
         rasterize_triangle(state, in);
         return;
     }
-    else{
-        data_geometry *new_tri = nullptr;
-        data_geometry *new_tri2 = nullptr;
-        std::vector<bool> vec_inside;
-        std::vector<data_geometry*> dg_vec;
-
+    else {
         vec4 A = (*in)[0].gl_Position;
         vec4 B = (*in)[1].gl_Position;
         vec4 C = (*in)[2].gl_Position;
 
-        int sign = 2*(face%2)-1;
-        int axis = face % 3;
+        const data_geometry* new_in[3] = {in[0], in[1], in[2]};
+        data_geometry first_dg[3];
+        data_geometry second_dg[3];
+        float new_A, new_B1, new_B2;
+        vec4 P1, P2;
 
-        if(A[axis] < A[3] && A[axis] > -A[3])
-            vec_inside.push_back(true);
-        else
-            vec_inside.push_back(false);
+        // if all vertices of triangle are inside screen space, simply return
+        if (A[2] < -A[3] && B[2] < -B[3] && C[2] < -C[3]) {
+            return;
+        } else {
+            if (A[2] < -A[3] && B[2] >= -B[3] && C[2] >= -C[3]) {
+                new_B1 = (-B[3] - B[2]) / (A[2] + A[3] - B[3] - B[2]);
+                new_B2 = (-A[3] - A[2]) / (C[2] + C[3] - A[3] - A[2]);
 
-        if(B[axis] < B[3] && B[axis] > -B[3])
-            vec_inside.push_back(true);
-        else
-            vec_inside.push_back(false);
+                P1 = new_B1 * A + (1 - new_B1) * B;
+                P2 = new_B2 * C + (1 - new_B2) * A;
 
-        if(C[axis] < C[3] && C[axis] > -C[3])
-            vec_inside.push_back(true);
-        else
-            vec_inside.push_back(false);
+                // =====================================================
 
-        if(!vec_inside[0] && !vec_inside[1] && !vec_inside[2]) {
-            ;   //do nothing
-        }
-        else if(vec_inside[0] && !vec_inside[1] && !vec_inside[2]) {
-            if(debug_mode)
-                std::cout << "[A] B C " << std::endl;
-            new_tri = create_triangle(state, in, A, B, C, axis, sign);
-            clip_triangle(state, (const data_geometry**) &new_tri, face+1);
-        }
-        else if(!vec_inside[0] && vec_inside[1] && !vec_inside[2]) {
-            if(debug_mode)
-                std::cout << "A [B] C " << std::endl;
-            new_tri = create_triangle(state, in, B, C, A, axis, sign);
-            clip_triangle(state, (const data_geometry**) &new_tri, face+1);
-        }
-        else if(!vec_inside[0] && !vec_inside[1] && vec_inside[2]) {
-            if(debug_mode)
-                std::cout << "A B [C] " << std::endl;
-            new_tri = create_triangle(state, in, C, A, B, axis, sign);
-            clip_triangle(state, (const data_geometry**) &new_tri, face+1);
-        }
-        else if(vec_inside[0] && vec_inside[1] && !vec_inside[2]) {
-            if(debug_mode)
-                std::cout << "[A] [B] C " << std::endl;
-            new_tri = create_triangle(state, in, A, B, C, axis, sign);
-            new_tri2 = create_triangle(state, in, B, C, A, axis, sign);
-            dg_vec.push_back(new_tri);
-            dg_vec.push_back(new_tri2);
-            for (auto &i : dg_vec)
-                clip_triangle(state, (const data_geometry**) &i, face+1);
-        }
-        else if(vec_inside[0] && !vec_inside[1] && vec_inside[2]) {
-            if(debug_mode)
-                std::cout << "[A] B [C] " << std::endl;
-            new_tri = create_triangle(state, in, A, B, C, axis, sign);
-            new_tri2 = create_triangle(state, in, C, A, B, axis, sign);
-            dg_vec.push_back(new_tri);
-            dg_vec.push_back(new_tri2);
-            for (auto &i : dg_vec)
-                clip_triangle(state, (const data_geometry**) &i, face+1);
-        }
-        else if(!vec_inside[0] && vec_inside[1] && vec_inside[2]) {
-            if(debug_mode)
-                std::cout << "A [B] [C] " << std::endl;
-            new_tri = create_triangle(state, in, B, C, A, axis, sign);
-            new_tri2 = create_triangle(state, in, C, A, B, axis, sign);
-            dg_vec.push_back(new_tri);
-            dg_vec.push_back(new_tri2);
-            for (auto &i : dg_vec)
-                clip_triangle(state, (const data_geometry**) &i, face+1);
-        }
-        else {  // if all vertices are in screen space
-            if(debug_mode)
-                std::cout << "[A B C]" << std::endl;
-            clip_triangle(state,in,face+1);
-        }
+                first_dg[0].data = new float[state.floats_per_vertex];
+                first_dg[1] = *in[1];
+                first_dg[2] = *in[2];
 
-        if(new_tri != nullptr) {
-            for(int i = 0; i < 3; i++)
-                delete[] new_tri[i].data;
-            delete[] new_tri;
-        }
-        if(new_tri2 != nullptr) {
-            for(int i = 0; i < 3; i++)
-                delete[] new_tri2[i].data;
-            delete[] new_tri2;
-        }
+                for(int i = 0; i < state.floats_per_vertex; i++) {
+                    switch (state.interp_rules[i]) {
+                        case interp_type::flat:
+                            first_dg[0].data[i] = (*in)[0].data[i];
+                            break;
+                        case interp_type::smooth:
+                            first_dg[0].data[i] = new_B2 * (*in)[2].data[i] + (1 - new_B2) * (*in)[0].data[i];
+                            break;
+                        case interp_type::noperspective:
+                            new_A = new_B2 * (*in)[2].gl_Position[3] / (new_B2 * (*in)[2].gl_Position[3] + (1 - new_B2) * (*in)[0].gl_Position[3]);
+                            first_dg[0].data[i] = new_A * (*in)[2].data[i] + (1 - new_A) * (*in)[0].data[i];
+                            break;
+                        default:
+                            break;
+                    }
+                }
 
-        return;
+                first_dg[0].gl_Position = P2;
+
+                new_in[0] = &first_dg[0];
+                new_in[1] = &first_dg[1];
+                new_in[2] = &first_dg[2];
+
+                clip_triangle(state, (const data_geometry**) &new_in, face + 1);
+
+                // =====================================================
+
+                second_dg[0].data = new float[state.floats_per_vertex];
+                second_dg[1] = *in[1];
+                second_dg[2] = *in[2];
+
+                for (int i = 0; i < state.floats_per_vertex; ++i) {
+                    switch (state.interp_rules[i]) {
+                        case interp_type::flat:
+                            second_dg[0].data[i] = (*in)[0].data[i];
+                            break;
+                        case interp_type::smooth:
+                            second_dg[0].data[i] = new_B1 * (*in)[0].data[i] + (1 - new_B1) * (*in)[1].data[i];
+                            break;
+                        case interp_type::noperspective:
+                            new_A = new_B1 * (*in)[0].gl_Position[3] / (new_B1 * (*in)[0].gl_Position[3] + (1 - new_B1) * (*in)[1].gl_Position[3]);
+                            second_dg[0].data[i] = new_A * (*in)[0].data[i] + (1 - new_A) * (*in)[1].data[i];
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
+                second_dg[0].gl_Position = P1;
+
+                new_in[0] = &second_dg[0];
+                new_in[1] = &first_dg[1];
+                new_in[2] = &first_dg[0];
+            }
+
+            clip_triangle(state, (const data_geometry**) &new_in, face + 1);
+        }
     }
 }
 
@@ -349,10 +336,12 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
     delete [] data;
 }
 
-data_geometry* create_triangle(driver_state& state, const data_geometry* in[3], vec4 A, vec4 B, vec4 C, int axis, int sign) {
+data_geometry* create_triangle(driver_state& state, const data_geometry* in[3], vec4 A, vec4 B, vec4 C, int axis, int sign)
+{
     float AB_t = ((sign * B[3] - B[axis]) / (A[axis] - sign*A[3] + sign*B[3] - B[axis]));
     float AC_t = ((sign * C[3] - C[axis]) / (A[axis] - sign*A[3] + sign*C[3] - C[axis]));
     float AB_k, AC_k;
+
     vec4 AB = AB_t * A + (1 - AB_t) * B;
     vec4 AC = AC_t * A + (1 - AC_t) * C;
 

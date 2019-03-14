@@ -1,5 +1,6 @@
 #include "driver_state.h"
 #include <vector>
+#include <limits>
 
 bool debug_mode = false;
 bool its_clipping_time = true;
